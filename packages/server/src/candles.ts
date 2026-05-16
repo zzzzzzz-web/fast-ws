@@ -2,7 +2,9 @@ import type { Trade, Candle } from './types.js'
 
 type OnClose = (candle: Candle) => void
 
-export function createCandleAccumulator(onClose: OnClose): (trade: Trade) => void {
+export function createCandleAccumulator(
+  onClose: OnClose,
+): (trade: Trade) => void {
   let candle: Candle | null = null
   let currentMinute: number | null = null
 

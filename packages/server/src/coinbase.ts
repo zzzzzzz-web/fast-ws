@@ -41,8 +41,20 @@ export function createCoinbaseFeed(log: FastifyBaseLogger): EventEmitter {
 
     ws.on('open', () => {
       log.info('coinbase: connected')
-      ws.send(JSON.stringify({ type: 'subscribe', product_ids: ['BTC-USD'], channel: 'market_trades' }))
-      ws.send(JSON.stringify({ type: 'subscribe', product_ids: ['BTC-USD'], channel: 'ticker_batch' }))
+      ws.send(
+        JSON.stringify({
+          type: 'subscribe',
+          product_ids: ['BTC-USD'],
+          channel: 'market_trades',
+        }),
+      )
+      ws.send(
+        JSON.stringify({
+          type: 'subscribe',
+          product_ids: ['BTC-USD'],
+          channel: 'ticker_batch',
+        }),
+      )
     })
 
     ws.on('message', (data: WebSocket.RawData) => {
