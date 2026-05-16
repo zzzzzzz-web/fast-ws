@@ -110,11 +110,16 @@ export default function App() {
       <div style={styles.chart}>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={chartData}>
-            <XAxis dataKey="time" tick={{ fill: '#9ca3af', fontSize: 11 }} />
+            <XAxis
+              dataKey="time"
+              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              minTickGap={80}
+            />
             <YAxis
               domain={['auto', 'auto']}
               tick={{ fill: '#9ca3af', fontSize: 11 }}
-              width={80}
+              width={72}
+              tickFormatter={(v: number) => `$${(v / 1000).toFixed(1)}k`}
             />
             <Tooltip
               contentStyle={{
@@ -141,14 +146,14 @@ export default function App() {
         {trades.map((t, i) => (
           <div key={i} style={styles.tradeRow}>
             <span style={{ color: t.buyerMaker ? '#f87171' : '#4ade80' }}>
-              {t.buyerMaker ? 'SELL' : 'BUY '}
+              {t.buyerMaker ? 'SELL' : 'BUY'}
             </span>
             <span style={styles.tradePrice}>
               ${t.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </span>
-            <span style={styles.tradeVol}>{t.volume.toFixed(5)} BTC</span>
+            <span style={styles.tradeVol}>{t.volume.toFixed(4)} BTC</span>
             <span style={styles.tradeTime}>
-              {format(t.timestamp, 'HH:mm:ss.SSS')}
+              {format(t.timestamp, 'HH:mm:ss')}
             </span>
           </div>
         ))}
