@@ -10,7 +10,7 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fastws
     volumes:
       - ./packages/server/src:/app/packages/server/src
-    command: node --watch packages/server/src/index.js
+    command: pnpm --filter @fast-ws/server dev
     depends_on:
       redis:
         condition: service_healthy

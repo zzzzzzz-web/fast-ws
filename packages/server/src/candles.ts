@@ -1,12 +1,16 @@
-export function createCandleAccumulator(onClose) {
-  let candle = null
-  let currentMinute = null
+import type { Trade, Candle } from './types.js'
 
-  return function accumulate(trade) {
+type OnClose = (candle: Candle) => void
+
+export function createCandleAccumulator(onClose: OnClose): (trade: Trade) => void {
+  let candle: Candle | null = null
+  let currentMinute: number | null = null
+
+  return function accumulate(trade: Trade): void {
     const minute = Math.floor(trade.timestamp / 60_000) * 60_000
 
     if (currentMinute !== null && minute !== currentMinute) {
-      onClose(candle)
+      if (candle) onClose(candle)
       candle = null
     }
 

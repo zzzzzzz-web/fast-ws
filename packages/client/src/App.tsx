@@ -2,14 +2,32 @@ import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
+interface Trade {
+  price: number
+  volume: number
+  timestamp: number
+  buyerMaker: boolean
+}
+
+interface ChartPoint {
+  time: string
+  price: number
+}
+
+interface ServerMessage {
+  type: 'backfill' | 'trade' | 'candle'
+  trades?: Trade[]
+  trade?: Trade
+}
+
 const MAX_CHART_POINTS = 300
 const MAX_TRADES = 100
 
 export default function App() {
-  const [trades, setTrades] = useState([])
-  const [chartData, setChartData] = useState([])
-  const [status, setStatus] = useState('connecting')
-  const wsRef = useRef(null)
+  const [trades, setTrades] = useState<Trade[]>([])
+  const [chartData, setChartData] = useState<ChartPoint[]>([])
+  const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
+  const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -25,24 +43,19 @@ export default function App() {
       setStatus('disconnected')
     })
 
-    ws.addEventListener('message', (event) => {
+    ws.addEventListener('message', (event: MessageEvent<string>) => {
       if (wsRef.current !== ws) return
-      const msg = JSON.parse(event.data)
+      const msg = JSON.parse(event.data) as ServerMessage
 
-      if (msg.type === 'backfill') {
-        // trades arrive newest-first from Redis; reverse for chart (oldest-first)
+      if (msg.type === 'backfill' && msg.trades) {
         const sorted = [...msg.trades].reverse()
         setTrades(msg.trades.slice(0, MAX_TRADES))
         setChartData(sorted.map(toChartPoint))
       }
 
-      if (msg.type === 'trade') {
-        setTrades((prev) => [msg.trade, ...prev].slice(0, MAX_TRADES))
-        setChartData((prev) => [...prev, toChartPoint(msg.trade)].slice(-MAX_CHART_POINTS))
-      }
-
-      if (msg.type === 'candle') {
-        // candle close gives us a clean confirmed data point — could render separately later
+      if (msg.type === 'trade' && msg.trade) {
+        setTrades((prev) => [msg.trade!, ...prev].slice(0, MAX_TRADES))
+        setChartData((prev) => [...prev, toChartPoint(msg.trade!)].slice(-MAX_CHART_POINTS))
       }
     })
 
@@ -66,8 +79,10 @@ export default function App() {
         </span>
       </header>
 
-      {latestPrice && (
-        <div style={styles.price}>${latestPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+      {latestPrice !== undefined && (
+        <div style={styles.price}>
+          ${latestPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+        </div>
       )}
 
       <div style={styles.chart}>
@@ -91,7 +106,9 @@ export default function App() {
             <span style={{ color: t.buyerMaker ? '#f87171' : '#4ade80' }}>
               {t.buyerMaker ? 'SELL' : 'BUY '}
             </span>
-            <span style={styles.tradePrice}>${t.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+            <span style={styles.tradePrice}>
+              ${t.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </span>
             <span style={styles.tradeVol}>{t.volume.toFixed(5)} BTC</span>
             <span style={styles.tradeTime}>{format(t.timestamp, 'HH:mm:ss.SSS')}</span>
           </div>
@@ -101,11 +118,11 @@ export default function App() {
   )
 }
 
-function toChartPoint(trade) {
+function toChartPoint(trade: Trade): ChartPoint {
   return { time: format(trade.timestamp, 'HH:mm:ss'), price: trade.price }
 }
 
-const styles = {
+const styles: Record<string, React.CSSProperties> = {
   page: { fontFamily: 'monospace', background: '#0f0f0f', minHeight: '100vh', color: '#e0e0e0', padding: '1.5rem' },
   header: { display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' },
   title: { fontSize: '1.5rem', margin: 0 },
