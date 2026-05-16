@@ -16,6 +16,11 @@ interface Trade {
   buyerMaker: boolean
 }
 
+interface PricePoint {
+  price: number
+  timestamp: number
+}
+
 interface ChartPoint {
   time: string
   price: number
@@ -24,8 +29,10 @@ interface ChartPoint {
 interface ServerMessage {
   type: 'backfill' | 'trade' | 'candle' | 'price'
   trades?: Trade[]
+  prices?: PricePoint[]
   trade?: Trade
   price?: number
+  timestamp?: number
 }
 
 const MAX_CHART_POINTS = 300
@@ -58,21 +65,28 @@ export default function App() {
       if (wsRef.current !== ws) return
       const msg = JSON.parse(event.data) as ServerMessage
 
-      if (msg.type === 'backfill' && msg.trades) {
-        const sorted = [...msg.trades].reverse()
-        setTrades(msg.trades.slice(0, MAX_TRADES))
-        setChartData(sorted.map(toChartPoint))
+      if (msg.type === 'backfill') {
+        if (msg.trades) setTrades(msg.trades.slice(0, MAX_TRADES))
+        if (msg.prices)
+          setChartData([...msg.prices].reverse().map(toChartPoint))
       }
 
       if (msg.type === 'trade' && msg.trade) {
         setTrades((prev) => [msg.trade!, ...prev].slice(0, MAX_TRADES))
-        setChartData((prev) =>
-          [...prev, toChartPoint(msg.trade!)].slice(-MAX_CHART_POINTS),
-        )
       }
 
-      if (msg.type === 'price' && msg.price !== undefined) {
+      if (
+        msg.type === 'price' &&
+        msg.price !== undefined &&
+        msg.timestamp !== undefined
+      ) {
         setCurrentPrice(msg.price)
+        setChartData((prev) =>
+          [
+            ...prev,
+            toChartPoint({ price: msg.price!, timestamp: msg.timestamp! }),
+          ].slice(-MAX_CHART_POINTS),
+        )
       }
     })
 
@@ -162,8 +176,8 @@ export default function App() {
   )
 }
 
-function toChartPoint(trade: Trade): ChartPoint {
-  return { time: format(trade.timestamp, 'HH:mm:ss'), price: trade.price }
+function toChartPoint(p: PricePoint): ChartPoint {
+  return { time: format(p.timestamp, 'HH:mm:ss'), price: p.price }
 }
 
 const styles: Record<string, React.CSSProperties> = {

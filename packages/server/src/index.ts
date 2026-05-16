@@ -2,7 +2,13 @@ import Fastify from 'fastify'
 import fastifyWebsocket from '@fastify/websocket'
 import WebSocket from 'ws'
 import { createCoinbaseFeed } from './coinbase.js'
-import { connectRedis, storeTrade, getRecentTrades } from './redis.js'
+import {
+  connectRedis,
+  storeTrade,
+  getRecentTrades,
+  storePrice,
+  getRecentPrices,
+} from './redis.js'
 import { connectPostgres, storeCandle } from './postgres.js'
 import { createCandleAccumulator } from './candles.js'
 import type { Trade, Candle } from './types.js'
@@ -44,7 +50,11 @@ coinbase.on('trade', (trade: Trade) => {
 })
 
 coinbase.on('price', (price: number) => {
-  broadcast({ type: 'price', price })
+  const timestamp = Date.now()
+  storePrice(redis, price, timestamp).catch((err: unknown) =>
+    fastify.log.error(err, 'store price failed'),
+  )
+  broadcast({ type: 'price', price, timestamp })
 })
 
 fastify.get('/stream', { websocket: true }, (socket) => {
@@ -53,10 +63,10 @@ fastify.get('/stream', { websocket: true }, (socket) => {
   socket.on('close', () => clients.delete(socket))
   socket.on('error', (err: Error) => fastify.log.error(err, 'ws client error'))
 
-  getRecentTrades(redis)
-    .then((trades) => {
+  Promise.all([getRecentTrades(redis), getRecentPrices(redis)])
+    .then(([trades, prices]) => {
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'backfill', trades }))
+        socket.send(JSON.stringify({ type: 'backfill', trades, prices }))
       }
     })
     .catch((err: unknown) => fastify.log.error(err, 'backfill failed'))
