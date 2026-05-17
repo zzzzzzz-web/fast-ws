@@ -1,5 +1,5 @@
 {
-  "name": "fast-ws",
+  "name": "btc-dashboard",
   "private": true,
   "scripts": {
     "dev": "pnpm --parallel -r dev",

@@ -1,5 +1,5 @@
 {
-  "name": "@fast-ws/client",
+  "name": "@btc-dashboard/client",
   "version": "0.0.1",
   "type": "module",
   "scripts": {
