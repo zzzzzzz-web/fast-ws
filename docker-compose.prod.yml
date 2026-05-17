@@ -6,7 +6,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
 
   server:
     build:
@@ -14,6 +15,11 @@ services:
       dockerfile: packages/server/Dockerfile.prod
     env_file:
       - .env.production
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       redis:
         condition: service_healthy
