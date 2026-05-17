@@ -4,11 +4,20 @@ import CandleChart, { type CandlePoint, type CandleRange } from './CandleChart'
 import TradeList, { type Trade } from './TradeList'
 import Section from './Section'
 
+interface ServerCandle {
+  time: string
+  open: number
+  high: number
+  low: number
+  close: number
+}
+
 interface ServerMessage {
   type: 'backfill' | 'trade' | 'candle' | 'price'
   trades?: Trade[]
   prices?: PricePoint[]
   trade?: Trade
+  candle?: ServerCandle
   price?: number
   timestamp?: number
 }
@@ -26,53 +35,96 @@ export default function App() {
   const [candleRange, setCandleRange] = useState<CandleRange>('day')
   const [candles, setCandles] = useState<CandlePoint[]>([])
   const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectDelayRef = useRef(1000)
+  const candleRangeRef = useRef(candleRange)
 
   useEffect(() => {
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${protocol}//${location.host}/stream`)
-    wsRef.current = ws
+    candleRangeRef.current = candleRange
+  }, [candleRange])
 
-    ws.addEventListener('open', () => {
-      if (wsRef.current !== ws) return
-      setStatus('connected')
-    })
-    ws.addEventListener('close', () => {
-      if (wsRef.current !== ws) return
-      setStatus('disconnected')
-    })
+  useEffect(() => {
+    function connect() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const ws = new WebSocket(`${protocol}//${location.host}/stream`)
+      wsRef.current = ws
 
-    ws.addEventListener('message', (event: MessageEvent<string>) => {
-      if (wsRef.current !== ws) return
-      const msg = JSON.parse(event.data) as ServerMessage
+      ws.addEventListener('open', () => {
+        if (wsRef.current !== ws) return
+        setStatus('connected')
+        reconnectDelayRef.current = 1000
+      })
 
-      if (msg.type === 'backfill') {
-        if (msg.trades) setTrades(msg.trades.slice(0, MAX_TRADES))
-        if (msg.prices) setPriceHistory([...msg.prices].reverse())
-      }
+      ws.addEventListener('close', () => {
+        if (wsRef.current !== ws) return
+        setStatus('disconnected')
+        reconnectTimerRef.current = setTimeout(() => {
+          reconnectDelayRef.current = Math.min(
+            reconnectDelayRef.current * 2,
+            30000,
+          )
+          connect()
+        }, reconnectDelayRef.current)
+      })
 
-      if (msg.type === 'trade' && msg.trade) {
-        setTrades((prev) => [msg.trade!, ...prev].slice(0, MAX_TRADES))
-      }
+      ws.addEventListener('message', (event: MessageEvent<string>) => {
+        if (wsRef.current !== ws) return
+        const msg = JSON.parse(event.data) as ServerMessage
 
-      if (
-        msg.type === 'price' &&
-        msg.price !== undefined &&
-        msg.timestamp !== undefined
-      ) {
-        setCurrentPrice(msg.price)
-        setPriceHistory((prev) =>
-          [...prev, { price: msg.price!, timestamp: msg.timestamp! }].slice(
-            -MAX_CHART_POINTS,
-          ),
-        )
-      }
-    })
+        if (msg.type === 'backfill') {
+          if (msg.trades) setTrades(msg.trades.slice(0, MAX_TRADES))
+          if (msg.prices) setPriceHistory([...msg.prices].reverse())
+        }
+
+        if (msg.type === 'trade' && msg.trade) {
+          setTrades((prev) => [msg.trade!, ...prev].slice(0, MAX_TRADES))
+        }
+
+        if (
+          msg.type === 'price' &&
+          msg.price !== undefined &&
+          msg.timestamp !== undefined
+        ) {
+          setCurrentPrice(msg.price)
+          setPriceHistory((prev) =>
+            [...prev, { price: msg.price!, timestamp: msg.timestamp! }].slice(
+              -MAX_CHART_POINTS,
+            ),
+          )
+        }
+
+        if (msg.type === 'candle' && msg.candle && candleRangeRef.current === 'day') {
+          const c = msg.candle
+          const newCandle: CandlePoint = {
+            time: Math.floor(new Date(c.time).getTime() / 1000),
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }
+          setCandles((prev) => {
+            const last = prev[prev.length - 1]
+            if (last?.time === newCandle.time) {
+              return [...prev.slice(0, -1), newCandle]
+            }
+            return [...prev, newCandle]
+          })
+        }
+      })
+    }
+
+    connect()
 
     return () => {
-      if (ws.readyState === WebSocket.CONNECTING) {
-        ws.addEventListener('open', () => ws.close(), { once: true })
-      } else {
-        ws.close()
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      const ws = wsRef.current
+      wsRef.current = null
+      if (ws) {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.addEventListener('open', () => ws.close(), { once: true })
+        } else {
+          ws.close()
+        }
       }
     }
   }, [])
