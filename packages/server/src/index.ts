@@ -75,6 +75,8 @@ fastify.get<{ Querystring: { range?: string } }>(
   },
 )
 
+fastify.get('/health', async () => ({ status: 'ok' }))
+
 fastify.get('/stream', { websocket: true }, (socket) => {
   clients.add(socket)
 
@@ -91,3 +93,13 @@ fastify.get('/stream', { websocket: true }, (socket) => {
 })
 
 await fastify.listen({ port: 3000, host: '0.0.0.0' })
+
+async function shutdown() {
+  await fastify.close()
+  await redis.quit()
+  await sql.end()
+  process.exit(0)
+}
+
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)
