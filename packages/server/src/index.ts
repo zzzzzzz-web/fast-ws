@@ -9,7 +9,12 @@ import {
   storePrice,
   getRecentPrices,
 } from './redis.js'
-import { connectPostgres, storeCandle } from './postgres.js'
+import {
+  connectPostgres,
+  storeCandle,
+  getCandles,
+  CandleRange,
+} from './postgres.js'
 import { createCandleAccumulator } from './candles.js'
 import type { Trade, Candle } from './types.js'
 
@@ -56,6 +61,19 @@ coinbase.on('price', (price: number) => {
   )
   broadcast({ type: 'price', price, timestamp })
 })
+
+const VALID_RANGES = new Set<CandleRange>(['day', 'week', 'month', 'year'])
+
+fastify.get<{ Querystring: { range?: string } }>(
+  '/candles',
+  async (req, reply) => {
+    const range = (req.query.range ?? 'week') as CandleRange
+    if (!VALID_RANGES.has(range)) {
+      return reply.status(400).send({ error: 'invalid range' })
+    }
+    return getCandles(sql, range)
+  },
+)
 
 fastify.get('/stream', { websocket: true }, (socket) => {
   clients.add(socket)

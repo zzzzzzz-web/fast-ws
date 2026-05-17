@@ -6,10 +6,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/stream': {
-        target: 'ws://localhost:3000',
-        ws: true,
-      },
+      '/stream': { target: 'ws://localhost:3000', ws: true },
+      '/candles': { target: 'http://localhost:3000' },
     },
   },
 })
