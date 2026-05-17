@@ -6,7 +6,7 @@ type RedisClient = ReturnType<typeof createClient>
 const TRADE_KEY = 'btc:trades'
 const PRICE_KEY = 'btc:prices'
 const MAX_TRADES = 500
-const MAX_PRICES = 60
+const MAX_PRICES = 300
 
 export async function connectRedis(): Promise<RedisClient> {
   const client = createClient({
