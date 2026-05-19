@@ -1,4 +1,4 @@
-FROM node:22-alpine AS client-builder
+FROM node:24-alpine AS client-builder
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
