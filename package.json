@@ -8,6 +8,9 @@
     "format": "prettier --write packages/*/src",
     "test": "pnpm -r test"
   },
+  "engines": {
+    "node": ">=24"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^9.39.4",
